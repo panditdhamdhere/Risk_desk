@@ -76,14 +76,15 @@ export function CommandPalette({ actions }: CommandPaletteProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.08 }}
             onClick={() => setOpen(false)}
           >
             <motion.div
               className="cmd-panel card clean-card"
-              initial={{ y: -20, opacity: 0, scale: 0.98 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: -12, opacity: 0, scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 280, damping: 24 }}
+              initial={{ y: -8, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -6, opacity: 0 }}
+              transition={{ duration: 0.1, ease: "easeOut" }}
               onClick={(e) => e.stopPropagation()}
             >
               <input

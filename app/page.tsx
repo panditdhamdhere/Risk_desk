@@ -44,6 +44,7 @@ export default function LandingPage() {
 
   return (
     <motion.main
+      id="main-content"
       className="page landing"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}

@@ -17,35 +17,52 @@ export default function OGImage() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: 48,
-          background:
-            "radial-gradient(1200px 700px at 10% -20%, #1a3872 0%, transparent 55%), linear-gradient(180deg, #0d1730, #070c18)",
-          color: "#f3f7ff",
-          fontFamily: "Inter, sans-serif",
+          padding: 56,
+          backgroundColor: "#000000",
+          color: "#ffffff",
+          fontFamily: "Georgia, 'Times New Roman', serif",
         }}
       >
-        <div style={{ fontSize: 24, letterSpacing: 1.2, textTransform: "uppercase", color: "#a3c9ff" }}>
+        <div
+          style={{
+            fontSize: 22,
+            letterSpacing: "0.28em",
+            textTransform: "uppercase",
+            color: "#a3a3a3",
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+          }}
+        >
           Pacifica Risk Desk
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ fontSize: 68, fontWeight: 700, lineHeight: 1.05, maxWidth: 980 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div
+            style={{
+              width: 120,
+              height: 4,
+              backgroundColor: "#ffffff",
+            }}
+          />
+          <div style={{ fontSize: 72, fontWeight: 600, lineHeight: 1.02, maxWidth: 980, letterSpacing: "-0.03em" }}>
             Institutional-grade analytics for Pacifica traders
           </div>
-          <div style={{ fontSize: 28, color: "#9fb0d3", maxWidth: 980 }}>
+          <div style={{ fontSize: 26, color: "#a3a3a3", maxWidth: 900, lineHeight: 1.45 }}>
             Funding radar, execution analytics, and portfolio risk monitoring.
           </div>
         </div>
-        <div style={{ display: "flex", gap: 14 }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {["Funding", "Execution", "Risk", "Testnet/Mainnet"].map((x) => (
             <div
               key={x}
               style={{
-                border: "1px solid rgba(140,180,255,0.35)",
-                borderRadius: 999,
-                padding: "8px 16px",
-                fontSize: 20,
-                color: "#b9d4ff",
-                background: "rgba(11,18,36,0.7)",
+                border: "2px solid #ffffff",
+                borderRadius: 0,
+                padding: "10px 18px",
+                fontSize: 18,
+                color: "#ffffff",
+                backgroundColor: "transparent",
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
               }}
             >
               {x}

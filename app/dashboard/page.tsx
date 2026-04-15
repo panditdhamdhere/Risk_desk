@@ -352,6 +352,7 @@ export default function DashboardPage() {
 
   return (
     <motion.main
+      id="main-content"
       className="page dashboard-page"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}

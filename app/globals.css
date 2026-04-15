@@ -296,19 +296,19 @@ button:hover {
 
 .card {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent),
     var(--card);
-  border: 1px solid var(--border-soft);
-  border-radius: 16px;
-  padding: 18px;
-  box-shadow: 0 16px 38px rgba(1, 6, 18, 0.32);
+  border: 1px solid rgba(140, 180, 255, 0.12);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 8px 18px rgba(1, 6, 18, 0.18);
 }
 
 .clean-card {
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(6px);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0)),
-    rgba(13, 22, 42, 0.78);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0)),
+    rgba(13, 22, 42, 0.62);
 }
 
 .card h3 {
@@ -347,7 +347,7 @@ button:hover {
 }
 
 .section {
-  margin-top: 28px;
+  margin-top: 30px;
 }
 
 .section h2 {
@@ -597,6 +597,16 @@ ul {
   color: #dce8ff;
 }
 
+.feature-item {
+  padding: 12px 2px 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.feature-item h3 {
+  margin: 0 0 8px;
+  color: #dce8ff;
+}
+
 .feature-grid-clean .feature-card {
   transition: transform 0.18s ease, border-color 0.18s ease;
 }
@@ -604,6 +614,15 @@ ul {
 .feature-grid-clean .feature-card:hover {
   transform: translateY(-2px);
   border-color: rgba(139, 178, 255, 0.3);
+}
+
+.feature-grid-clean .feature-item {
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.feature-grid-clean .feature-item:hover {
+  transform: translateY(-1px);
+  border-bottom-color: rgba(139, 178, 255, 0.45);
 }
 
 .feature-index {
@@ -675,12 +694,12 @@ ul {
 }
 
 .trust-strip span {
-  border: 1px solid var(--border-soft);
-  border-radius: 12px;
-  padding: 10px 12px;
+  border: 1px solid rgba(140, 180, 255, 0.1);
+  border-radius: 10px;
+  padding: 9px 10px;
   font-size: 12px;
   color: #b9c8e8;
-  background: rgba(12, 21, 40, 0.62);
+  background: rgba(12, 21, 40, 0.38);
   text-align: center;
 }
 

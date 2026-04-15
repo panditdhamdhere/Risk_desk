@@ -115,7 +115,7 @@ export default function LandingPage() {
         <h2>Product Modules</h2>
         <div className="grid compact feature-grid-clean">
           {features.map((f, idx) => (
-            <article key={f.title} className="card feature-card clean-card">
+            <article key={f.title} className="feature-item">
               <p className="feature-index">0{idx + 1}</p>
               <h3>{f.title}</h3>
               <p className="muted">{f.desc}</p>

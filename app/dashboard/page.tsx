@@ -7,6 +7,7 @@ import { MiniBars } from "@/components/charts/MiniBars";
 import { Card, SectionHeader } from "@/components/ui/Card";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { SkeletonBlock } from "@/components/ui/Skeleton";
+import { SiteFooter } from "@/components/ui/SiteFooter";
 import { StatCard } from "@/components/ui/StatCard";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
@@ -73,10 +74,13 @@ export default function DashboardPage() {
   const [account, setAccount] = useState("");
   const [symbol, setSymbol] = useState("BTC");
   const [limit, setLimit] = useState(120);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [fundingFilter, setFundingFilter] = useState("");
   const [fillsFilter, setFillsFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showTour, setShowTour] = useState(false);
   const [data, setData] = useState<{
     merged: AnyRow[];
     book: AnyRow;
@@ -126,6 +130,7 @@ export default function DashboardPage() {
         positions: positionsJson,
         trades: tradesJson.data ?? [],
       });
+      setLastUpdated(new Date());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -136,6 +141,19 @@ export default function DashboardPage() {
   useEffect(() => {
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const id = window.setInterval(() => {
+      void run();
+    }, 20000);
+    return () => window.clearInterval(id);
+  }, [autoRefresh, network, account, symbol, limit]); // keep interval aligned with current query inputs
+
+  useEffect(() => {
+    const hidden = localStorage.getItem("tour.dismissed") === "1";
+    if (!hidden) setShowTour(true);
   }, []);
 
   const symbols = useMemo(() => {
@@ -284,9 +302,38 @@ export default function DashboardPage() {
           <button className="btn-primary" onClick={run} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh Dashboard"}
           </button>
-          <span className="muted">Tip: connect a wallet to unlock portfolio + session analytics.</span>
+          <label className="toggle-wrap">
+            <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+            <span className="muted">Auto-refresh 20s</span>
+          </label>
+          <span className="muted">
+            {lastUpdated ? `Last updated ${lastUpdated.toLocaleTimeString()}` : "Waiting for first data pull..."}
+          </span>
         </div>
       </section>
+
+      {showTour ? (
+        <Card className="tour-card">
+          <div className="tour-head">
+            <strong>Quick Tour</strong>
+            <button
+              className="theme-toggle"
+              onClick={() => {
+                setShowTour(false);
+                localStorage.setItem("tour.dismissed", "1");
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+          <ol className="tour-list">
+            <li><strong>Set network + wallet:</strong> Use the controls to switch testnet/mainnet and paste an account.</li>
+            <li><strong>Read top metrics:</strong> Session Net, Fee Drag, Spread, and Risk score update together.</li>
+            <li><strong>Use charts + tables:</strong> Funding and fills views highlight where your edge and risk are.</li>
+            <li><strong>Use command palette:</strong> Press <code>⌘K</code> or <code>Ctrl+K</code> to navigate instantly.</li>
+          </ol>
+        </Card>
+      ) : null}
 
       {error ? <Card className="alert">Error: {error}</Card> : null}
 
@@ -391,9 +438,12 @@ export default function DashboardPage() {
               {filteredFunding.length ? (
                 filteredFunding.map((r) => (
                   <tr key={r.symbol}>
-                    <td>{r.symbol}</td>
+                    <td><span className="sym-pill">{r.symbol}</span></td>
                     <td>{r.mark}</td>
-                    <td>{r.next_funding ?? r.funding}</td>
+                    <td className={toNum(r.next_funding ?? r.funding) >= 0 ? "bad" : "good"}>
+                      {toNum(r.next_funding ?? r.funding) >= 0 ? "▲ " : "▼ "}
+                      {r.next_funding ?? r.funding}
+                    </td>
                     <td>{r.open_interest}</td>
                     <td>{r.volume_24h}</td>
                   </tr>
@@ -436,9 +486,9 @@ export default function DashboardPage() {
               {filteredFills.length ? (
                 filteredFills.map((r) => (
                   <tr key={r.symbol}>
-                    <td>{r.symbol}</td>
+                    <td><span className="sym-pill">{r.symbol}</span></td>
                     <td>{r.fills}</td>
-                    <td>{fmt(r.pnl)}</td>
+                    <td className={r.pnl >= 0 ? "good" : "bad"}>{r.pnl >= 0 ? "▲ " : "▼ "}{fmt(r.pnl)}</td>
                     <td>{fmt(r.fees)}</td>
                     <td className={r.net >= 0 ? "good" : "bad"}>{fmt(r.net)}</td>
                   </tr>
@@ -472,8 +522,10 @@ export default function DashboardPage() {
               {data.positions.length ? (
                 data.positions.map((p, idx) => (
                   <tr key={`${p.symbol}-${idx}`}>
-                    <td>{p.symbol}</td>
-                    <td>{p.side}</td>
+                    <td><span className="sym-pill">{p.symbol}</span></td>
+                    <td className={(String(p.side).toLowerCase().includes("bid") || String(p.side).toLowerCase().includes("long")) ? "good" : "bad"}>
+                      {(String(p.side).toLowerCase().includes("bid") || String(p.side).toLowerCase().includes("long")) ? "Long" : "Short"}
+                    </td>
                     <td>{p.amount}</td>
                     <td>{p.entry_price}</td>
                     <td>{marks[p.symbol] || "-"}</td>
@@ -516,6 +568,7 @@ export default function DashboardPage() {
           </Card>
         </section>
       ) : null}
+      <SiteFooter compact />
         </div>
       </div>
     </motion.main>

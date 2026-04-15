@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { CommandPalette } from "@/components/ui/CommandPalette";
+import { SiteFooter } from "@/components/ui/SiteFooter";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const features = [
@@ -75,6 +76,32 @@ export default function LandingPage() {
           </a>
         </div>
         <p className="subtle-note">Coverage: Funding, order-book microstructure, account, positions, and fills.</p>
+        <div className="hero-preview">
+          <div className="hero-preview-head">
+            <span className="dot" />
+            <span className="dot" />
+            <span className="dot" />
+            <p>Live Console Preview</p>
+          </div>
+          <div className="hero-preview-grid">
+            <div>
+              <p className="muted">Session Net</p>
+              <strong className="good">+1,248.32</strong>
+            </div>
+            <div>
+              <p className="muted">Fee Drag</p>
+              <strong>83.17</strong>
+            </div>
+            <div>
+              <p className="muted">Risk Score</p>
+              <strong className="warn">46.2 / 100</strong>
+            </div>
+            <div>
+              <p className="muted">Spread</p>
+              <strong>0.00062</strong>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="trust-strip">
@@ -128,6 +155,22 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      <section className="section final-cta card clean-card">
+        <h2>Ready to trade with confidence?</h2>
+        <p className="muted">
+          Launch the live dashboard, connect a wallet, and monitor funding pressure, execution quality, and risk from one
+          modern operator console.
+        </p>
+        <div className="landing-cta">
+          <Link href="/dashboard" className="btn-primary btn-link">
+            Open Dashboard
+          </Link>
+          <a className="btn-ghost" href="https://test-app.pacifica.fi/" target="_blank" rel="noreferrer">
+            Open Pacifica Testnet
+          </a>
+        </div>
+      </section>
+      <SiteFooter />
     </motion.main>
   );
 }

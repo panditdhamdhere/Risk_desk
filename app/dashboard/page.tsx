@@ -12,6 +12,19 @@ import { StatCard } from "@/components/ui/StatCard";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 type AnyRow = Record<string, any>;
+type ConsoleLayout = {
+  network: "testnet" | "mainnet";
+  account: string;
+  symbol: string;
+  limit: number;
+  autoRefresh: boolean;
+  fundingFilter: string;
+  fillsFilter: string;
+  fundingSort: "symbol" | "funding" | "oi";
+  fundingOrder: "asc" | "desc";
+  fillsSort: "symbol" | "fills" | "pnl" | "net";
+  fillsOrder: "asc" | "desc";
+};
 
 function toNum(v: any): number {
   const n = Number(v);
@@ -69,6 +82,15 @@ function toPct(v: number): string {
   return `${v.toFixed(1)}%`;
 }
 
+function toCsv(rows: AnyRow[]): string {
+  if (!rows.length) return "";
+  const cols = Object.keys(rows[0]);
+  const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+  const head = cols.map(esc).join(",");
+  const body = rows.map((r) => cols.map((c) => esc(r[c])).join(",")).join("\n");
+  return `${head}\n${body}`;
+}
+
 export default function DashboardPage() {
   const [network, setNetwork] = useState<"testnet" | "mainnet">("testnet");
   const [account, setAccount] = useState("");
@@ -78,6 +100,10 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [fundingFilter, setFundingFilter] = useState("");
   const [fillsFilter, setFillsFilter] = useState("");
+  const [fundingSort, setFundingSort] = useState<"symbol" | "funding" | "oi">("funding");
+  const [fundingOrder, setFundingOrder] = useState<"asc" | "desc">("desc");
+  const [fillsSort, setFillsSort] = useState<"symbol" | "fills" | "pnl" | "net">("net");
+  const [fillsOrder, setFillsOrder] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showTour, setShowTour] = useState(false);
@@ -94,6 +120,7 @@ export default function DashboardPage() {
     positions: [],
     trades: [],
   });
+  const [layoutLoaded, setLayoutLoaded] = useState(false);
 
   const run = async () => {
     setLoading(true);
@@ -139,9 +166,64 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem("console.layout");
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<ConsoleLayout>;
+        if (saved.network === "testnet" || saved.network === "mainnet") setNetwork(saved.network);
+        if (typeof saved.account === "string") setAccount(saved.account);
+        if (typeof saved.symbol === "string" && saved.symbol) setSymbol(saved.symbol);
+        if (typeof saved.limit === "number" && Number.isFinite(saved.limit)) setLimit(Math.max(20, saved.limit));
+        if (typeof saved.autoRefresh === "boolean") setAutoRefresh(saved.autoRefresh);
+        if (typeof saved.fundingFilter === "string") setFundingFilter(saved.fundingFilter);
+        if (typeof saved.fillsFilter === "string") setFillsFilter(saved.fillsFilter);
+        if (saved.fundingSort && ["symbol", "funding", "oi"].includes(saved.fundingSort)) setFundingSort(saved.fundingSort);
+        if (saved.fundingOrder && ["asc", "desc"].includes(saved.fundingOrder)) setFundingOrder(saved.fundingOrder);
+        if (saved.fillsSort && ["symbol", "fills", "pnl", "net"].includes(saved.fillsSort)) setFillsSort(saved.fillsSort);
+        if (saved.fillsOrder && ["asc", "desc"].includes(saved.fillsOrder)) setFillsOrder(saved.fillsOrder);
+      }
+    } catch {
+      // Ignore malformed local layout.
+    }
+    setLayoutLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!layoutLoaded) return;
+    const payload: ConsoleLayout = {
+      network,
+      account,
+      symbol,
+      limit,
+      autoRefresh,
+      fundingFilter,
+      fillsFilter,
+      fundingSort,
+      fundingOrder,
+      fillsSort,
+      fillsOrder,
+    };
+    localStorage.setItem("console.layout", JSON.stringify(payload));
+  }, [
+    layoutLoaded,
+    network,
+    account,
+    symbol,
+    limit,
+    autoRefresh,
+    fundingFilter,
+    fillsFilter,
+    fundingSort,
+    fundingOrder,
+    fillsSort,
+    fillsOrder,
+  ]);
+
+  useEffect(() => {
+    if (!layoutLoaded) return;
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [layoutLoaded]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -185,9 +267,22 @@ export default function DashboardPage() {
   const filteredFunding = topFunding.filter((r) =>
     String(r.symbol ?? "").toLowerCase().includes(fundingFilter.trim().toLowerCase()),
   );
+  const sortedFunding = [...filteredFunding].sort((a, b) => {
+    const dir = fundingOrder === "asc" ? 1 : -1;
+    if (fundingSort === "symbol") return String(a.symbol).localeCompare(String(b.symbol)) * dir;
+    if (fundingSort === "oi") return (toNum(a.open_interest) - toNum(b.open_interest)) * dir;
+    return (Math.abs(toNum(a.next_funding ?? a.funding)) - Math.abs(toNum(b.next_funding ?? b.funding))) * dir;
+  });
   const filteredFills = fillsBySymbol.filter((r) =>
     String(r.symbol ?? "").toLowerCase().includes(fillsFilter.trim().toLowerCase()),
   );
+  const sortedFills = [...filteredFills].sort((a, b) => {
+    const dir = fillsOrder === "asc" ? 1 : -1;
+    if (fillsSort === "symbol") return String(a.symbol).localeCompare(String(b.symbol)) * dir;
+    if (fillsSort === "fills") return (toNum(a.fills) - toNum(b.fills)) * dir;
+    if (fillsSort === "pnl") return (toNum(a.pnl) - toNum(b.pnl)) * dir;
+    return (toNum(a.net) - toNum(b.net)) * dir;
+  });
 
   const hasAccountData = Boolean(account);
   const riskTone = risk.overall > 70 ? "bad" : risk.overall > 40 ? "warn" : "good";
@@ -215,6 +310,12 @@ export default function DashboardPage() {
     { id: "to-funding", label: "Jump to Funding", hint: "Section", onSelect: () => document.getElementById("funding")?.scrollIntoView({ behavior: "smooth" }) },
     { id: "to-fills", label: "Jump to Fills", hint: "Section", onSelect: () => document.getElementById("fills")?.scrollIntoView({ behavior: "smooth" }) },
   ];
+  const riskAlerts = [
+    risk.overall > 70 ? "High portfolio risk score. Consider reducing concentrated exposure." : "",
+    spread > 0 && spread > bestBid * 0.002 ? "Order-book spread is wide versus best bid. Watch execution quality." : "",
+    fillMetrics.net < 0 ? "Session net PnL is negative after fees in selected window." : "",
+    topFunding[0] ? `Largest absolute funding signal is ${topFunding[0].symbol}.` : "",
+  ].filter(Boolean);
 
   return (
     <motion.main
@@ -301,6 +402,24 @@ export default function DashboardPage() {
         <div className="actions">
           <button className="btn-primary" onClick={run} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh Dashboard"}
+          </button>
+          <button
+            onClick={() => {
+              localStorage.removeItem("console.layout");
+              setNetwork("testnet");
+              setAccount("");
+              setSymbol("BTC");
+              setLimit(120);
+              setAutoRefresh(false);
+              setFundingFilter("");
+              setFillsFilter("");
+              setFundingSort("funding");
+              setFundingOrder("desc");
+              setFillsSort("net");
+              setFillsOrder("desc");
+            }}
+          >
+            Reset Layout
           </button>
           <label className="toggle-wrap">
             <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
@@ -411,17 +530,58 @@ export default function DashboardPage() {
           )}
         </div>
       </section>
+      <section className="section">
+        <Card>
+          <SectionHeader title="Risk Alerts" subtitle="Fast checks for execution and portfolio stress." />
+          {riskAlerts.length ? (
+            <ul>
+              {riskAlerts.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No active alerts right now.</p>
+          )}
+        </Card>
+      </section>
 
       <section className="section" id="funding">
         <SectionHeader title="Funding Radar" subtitle="Ranked by absolute funding pressure." />
         <div className="table-toolbar">
-          <input
-            value={fundingFilter}
-            onChange={(e) => setFundingFilter(e.target.value)}
-            placeholder="Filter symbol..."
-            className="table-filter"
-          />
-          <span className="muted">{filteredFunding.length} rows</span>
+          <div className="table-toolbar-left">
+            <input
+              value={fundingFilter}
+              onChange={(e) => setFundingFilter(e.target.value)}
+              placeholder="Filter symbol..."
+              className="table-filter"
+            />
+            <select value={fundingSort} onChange={(e) => setFundingSort(e.target.value as typeof fundingSort)}>
+              <option value="funding">Sort: Funding</option>
+              <option value="oi">Sort: Open Interest</option>
+              <option value="symbol">Sort: Symbol</option>
+            </select>
+            <select value={fundingOrder} onChange={(e) => setFundingOrder(e.target.value as typeof fundingOrder)}>
+              <option value="desc">Desc</option>
+              <option value="asc">Asc</option>
+            </select>
+          </div>
+          <div className="table-toolbar-right">
+            <span className="muted">{sortedFunding.length} rows</span>
+            <button
+              onClick={() => {
+                const csv = toCsv(sortedFunding);
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "funding_radar.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Export CSV
+            </button>
+          </div>
         </div>
         <div className="table-wrap">
           <table>
@@ -435,8 +595,8 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredFunding.length ? (
-                filteredFunding.map((r) => (
+              {sortedFunding.length ? (
+                sortedFunding.map((r) => (
                   <tr key={r.symbol}>
                     <td><span className="sym-pill">{r.symbol}</span></td>
                     <td>{r.mark}</td>
@@ -463,13 +623,41 @@ export default function DashboardPage() {
       <section className="section" id="fills">
         <SectionHeader title="Fills by Symbol" subtitle="Execution attribution by market." />
         <div className="table-toolbar">
-          <input
-            value={fillsFilter}
-            onChange={(e) => setFillsFilter(e.target.value)}
-            placeholder="Filter symbol..."
-            className="table-filter"
-          />
-          <span className="muted">{filteredFills.length} rows</span>
+          <div className="table-toolbar-left">
+            <input
+              value={fillsFilter}
+              onChange={(e) => setFillsFilter(e.target.value)}
+              placeholder="Filter symbol..."
+              className="table-filter"
+            />
+            <select value={fillsSort} onChange={(e) => setFillsSort(e.target.value as typeof fillsSort)}>
+              <option value="net">Sort: Net</option>
+              <option value="pnl">Sort: PnL</option>
+              <option value="fills">Sort: Fills</option>
+              <option value="symbol">Sort: Symbol</option>
+            </select>
+            <select value={fillsOrder} onChange={(e) => setFillsOrder(e.target.value as typeof fillsOrder)}>
+              <option value="desc">Desc</option>
+              <option value="asc">Asc</option>
+            </select>
+          </div>
+          <div className="table-toolbar-right">
+            <span className="muted">{sortedFills.length} rows</span>
+            <button
+              onClick={() => {
+                const csv = toCsv(sortedFills);
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "fills_by_symbol.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Export CSV
+            </button>
+          </div>
         </div>
         <div className="table-wrap">
           <table>
@@ -483,8 +671,8 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredFills.length ? (
-                filteredFills.map((r) => (
+              {sortedFills.length ? (
+                sortedFills.map((r) => (
                   <tr key={r.symbol}>
                     <td><span className="sym-pill">{r.symbol}</span></td>
                     <td>{r.fills}</td>

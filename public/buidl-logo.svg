@@ -13,8 +13,10 @@
       <stop offset="1" stop-color="#A8EFFF" stop-opacity="0.08"/>
     </linearGradient>
   </defs>
+
   <rect x="24" y="24" width="432" height="432" rx="96" fill="url(#bg)"/>
   <rect x="24" y="24" width="432" height="432" rx="96" stroke="#6EEBFF" stroke-opacity="0.35" stroke-width="2"/>
+
   <g opacity="0.16" stroke="#8AEFFF" stroke-width="1">
     <path d="M100 120H380"/>
     <path d="M100 180H380"/>
@@ -27,11 +29,14 @@
     <path d="M300 100V380"/>
     <path d="M360 100V380"/>
   </g>
+
   <path d="M240 94L332 134V218C332 286 289 335 240 358C191 335 148 286 148 218V134L240 94Z" fill="url(#shield)" stroke="#88EEFF" stroke-width="3"/>
+
   <g stroke-linecap="round" stroke-linejoin="round">
     <path d="M176 264L214 224L245 246L304 184" stroke="url(#accent)" stroke-width="10"/>
     <circle cx="304" cy="184" r="8" fill="#77EAFF"/>
   </g>
+
   <g fill="#B9F8FF">
     <rect x="176" y="274" width="18" height="38" rx="4"/>
     <rect x="205" y="256" width="18" height="56" rx="4"/>
@@ -39,6 +44,7 @@
     <rect x="263" y="236" width="18" height="76" rx="4"/>
     <rect x="292" y="248" width="18" height="64" rx="4"/>
   </g>
+
   <text x="240" y="402" text-anchor="middle" fill="#DDFDFF" font-size="50" font-family="Inter, Arial, sans-serif" font-weight="700" letter-spacing="3">
     PRD
   </text>

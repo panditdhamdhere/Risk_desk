@@ -1,6 +1,6 @@
 # Pacifica Risk Desk
 
-Pacifica Risk Desk is a modern risk and execution intelligence console for perpetual traders on Pacifica.
+Pacifica Risk Desk is a real-time risk and execution intelligence console for perpetual traders on Pacifica.
 
 It helps operators answer three critical questions in seconds:
 - Where is portfolio risk concentrated?
@@ -17,7 +17,7 @@ Perps traders often monitor raw numbers across multiple views but lack a single 
 
 Pacifica Risk Desk turns live Pacifica market/account/trade data into a decision layer designed for speed.
 
-## What it does
+## Core Features
 
 - **Risk Engine v2 Alerts**
   - overall risk band (Low/Medium/High)
@@ -44,7 +44,7 @@ Pacifica Risk Desk turns live Pacifica market/account/trade data into a decision
   - wallet connect/disconnect in navbar
   - command palette (`⌘K` / `Ctrl+K`)
   - dark/light theme
-  - table filtering/sorting + CSV exports
+  - filtering/sorting + CSV exports for funding and fills
   - local layout persistence
 
 ## Tech Stack
@@ -54,16 +54,19 @@ Pacifica Risk Desk turns live Pacifica market/account/trade data into a decision
 - Framer Motion
 - Pacifica REST API (via Next.js route handlers)
 
-## Architecture
+## Architecture Overview
 
 The frontend does not call Pacifica directly from the browser.  
 It calls internal API routes that proxy Pacifica endpoints for clean separation and easier control:
 
-- `app/api/market/route.ts` -> `/info`, `/info/prices`
-- `app/api/book/route.ts` -> `/book`
-- `app/api/account/route.ts` -> `/account`
-- `app/api/positions/route.ts` -> `/positions`
-- `app/api/trades/route.ts` -> `/trades/history`
+- `app/api/market/route.ts` -> Pacifica `/info`, `/info/prices`
+- `app/api/book/route.ts` -> Pacifica `/book`
+- `app/api/account/route.ts` -> Pacifica `/account`
+- `app/api/positions/route.ts` -> Pacifica `/positions`
+- `app/api/trades/route.ts` -> Pacifica `/trades/history`
+
+Data flow:
+- Browser UI -> Next.js route handlers -> Pacifica REST API -> Dashboard analytics and alerts
 
 ## Local Development
 
@@ -83,7 +86,7 @@ npm run start
 
 ## Environment
 
-Copy `.env.example` to `.env` and set values:
+Copy `.env.example` to `.env` and configure:
 
 - `PACIFICA_NETWORK` (`testnet` or `mainnet`)
 - `PACIFICA_REST_URL` (optional full API base override)
@@ -95,7 +98,6 @@ Copy `.env.example` to `.env` and set values:
 - `/` -> landing page
 - `/dashboard` -> live analytics console
 
-
 ## Important Files
 
 - `app/dashboard/page.tsx` - core analytics console
@@ -106,3 +108,7 @@ Copy `.env.example` to `.env` and set values:
 - `components/ui/StatCard.tsx`
 - `components/charts/Sparkline.tsx`
 - `components/charts/MiniBars.tsx`
+
+## Repository
+
+- GitHub: [https://github.com/panditdhamdhere/Risk_desk](https://github.com/panditdhamdhere/Risk_desk)

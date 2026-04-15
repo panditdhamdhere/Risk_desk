@@ -24,6 +24,10 @@ type ConsoleLayout = {
   fundingOrder: "asc" | "desc";
   fillsSort: "symbol" | "fills" | "pnl" | "net";
   fillsOrder: "asc" | "desc";
+  thresholdRiskScore: number;
+  thresholdConcentration: number;
+  thresholdFeeDrag: number;
+  thresholdSlippageBps: number;
 };
 
 function toNum(v: any): number {
@@ -120,6 +124,11 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [showTour, setShowTour] = useState(false);
   const [walletConnecting, setWalletConnecting] = useState(false);
+  const [thresholdRiskScore, setThresholdRiskScore] = useState(70);
+  const [thresholdConcentration, setThresholdConcentration] = useState(45);
+  const [thresholdFeeDrag, setThresholdFeeDrag] = useState(24);
+  const [thresholdSlippageBps, setThresholdSlippageBps] = useState(24);
+  const [presetNotice, setPresetNotice] = useState("");
   const [data, setData] = useState<{
     merged: AnyRow[];
     book: AnyRow;
@@ -220,6 +229,18 @@ export default function DashboardPage() {
         if (saved.fundingOrder && ["asc", "desc"].includes(saved.fundingOrder)) setFundingOrder(saved.fundingOrder);
         if (saved.fillsSort && ["symbol", "fills", "pnl", "net"].includes(saved.fillsSort)) setFillsSort(saved.fillsSort);
         if (saved.fillsOrder && ["asc", "desc"].includes(saved.fillsOrder)) setFillsOrder(saved.fillsOrder);
+        if (typeof saved.thresholdRiskScore === "number" && Number.isFinite(saved.thresholdRiskScore)) {
+          setThresholdRiskScore(saved.thresholdRiskScore);
+        }
+        if (typeof saved.thresholdConcentration === "number" && Number.isFinite(saved.thresholdConcentration)) {
+          setThresholdConcentration(saved.thresholdConcentration);
+        }
+        if (typeof saved.thresholdFeeDrag === "number" && Number.isFinite(saved.thresholdFeeDrag)) {
+          setThresholdFeeDrag(saved.thresholdFeeDrag);
+        }
+        if (typeof saved.thresholdSlippageBps === "number" && Number.isFinite(saved.thresholdSlippageBps)) {
+          setThresholdSlippageBps(saved.thresholdSlippageBps);
+        }
       }
     } catch {
       // Ignore malformed local layout.
@@ -241,6 +262,10 @@ export default function DashboardPage() {
       fundingOrder,
       fillsSort,
       fillsOrder,
+      thresholdRiskScore,
+      thresholdConcentration,
+      thresholdFeeDrag,
+      thresholdSlippageBps,
     };
     localStorage.setItem("console.layout", JSON.stringify(payload));
   }, [
@@ -256,6 +281,10 @@ export default function DashboardPage() {
     fundingOrder,
     fillsSort,
     fillsOrder,
+    thresholdRiskScore,
+    thresholdConcentration,
+    thresholdFeeDrag,
+    thresholdSlippageBps,
   ]);
 
   useEffect(() => {
@@ -414,6 +443,53 @@ export default function DashboardPage() {
         : "Healthy";
   const executionTone =
     executionQuality === "Needs Attention" ? "bad" : executionQuality === "Moderate" ? "warn" : "good";
+  const profitableFills = executionRows.filter((r) => r.pnl > 0).length;
+  const winRate = executionRows.length ? (profitableFills / executionRows.length) * 100 : 0;
+  const costPerFill = executionRows.length ? totalFeesAbs / executionRows.length : 0;
+  const fundingBySymbol = new Map<string, number>();
+  for (const row of data.merged) {
+    fundingBySymbol.set(String(row.symbol ?? ""), Math.abs(toNum(row.next_funding ?? row.funding)));
+  }
+  const positionRiskRows = notionalByPosition.map((row) => {
+    const source = data.positions.find((p) => String(p.symbol ?? "") === row.symbol);
+    const entry = toNum(source?.entry_price);
+    const mark = toNum(marks[row.symbol]);
+    const movePct = entry > 0 && mark > 0 ? Math.abs((mark - entry) / entry) * 100 : 0;
+    const notionalShare = grossNotional > 0 ? (row.notional / grossNotional) * 100 : 0;
+    const fundingStress = fundingBySymbol.get(row.symbol) ?? 0;
+    const riskScore = notionalShare * 0.55 + movePct * 0.25 + fundingStress * 10000 * 0.2;
+    const badge = riskScore > 45 ? "High" : riskScore > 25 ? "Medium" : "Low";
+    const recommendation =
+      badge === "High"
+        ? "Trim size / hedge"
+        : badge === "Medium"
+          ? "Tighten TP-SL"
+          : "Hold setup";
+    return { ...row, movePct, notionalShare, riskScore, badge, recommendation };
+  });
+  const highRiskSymbols = positionRiskRows.filter((r) => r.badge === "High").length;
+  const mediumRiskSymbols = positionRiskRows.filter((r) => r.badge === "Medium").length;
+  const compositeRecommendation =
+    highRiskSymbols >= 2 || risk.overall >= thresholdRiskScore
+      ? "De-risk now: reduce concentration and rebalance directional exposure."
+      : mediumRiskSymbols >= 2 || feeDragPct >= thresholdFeeDrag
+        ? "Watchlist mode: tighten risk controls and improve execution quality."
+        : "Portfolio posture is stable: keep current allocation and monitor funding shifts.";
+
+  const thresholdAlerts = [
+    risk.overall >= thresholdRiskScore
+      ? `Risk score ${risk.overall.toFixed(1)} crossed threshold ${thresholdRiskScore.toFixed(1)}.`
+      : "",
+    concentrationPct >= thresholdConcentration
+      ? `Concentration ${concentrationPct.toFixed(1)}% crossed threshold ${thresholdConcentration.toFixed(1)}%.`
+      : "",
+    feeDragPct >= thresholdFeeDrag
+      ? `Fee drag ${feeDragPct.toFixed(1)}% crossed threshold ${thresholdFeeDrag.toFixed(1)}%.`
+      : "",
+    slippageProxyBps >= thresholdSlippageBps
+      ? `Slippage proxy ${slippageProxyBps.toFixed(1)} bps crossed threshold ${thresholdSlippageBps.toFixed(1)} bps.`
+      : "",
+  ].filter(Boolean);
 
   return (
     <motion.main
@@ -532,9 +608,33 @@ export default function DashboardPage() {
               setFundingOrder("desc");
               setFillsSort("net");
               setFillsOrder("desc");
+              setThresholdRiskScore(70);
+              setThresholdConcentration(45);
+              setThresholdFeeDrag(24);
+              setThresholdSlippageBps(24);
+              setPresetNotice("");
             }}
           >
             Reset Layout
+          </button>
+          <button
+            onClick={() => {
+              setNetwork("testnet");
+              setSymbol("BTC");
+              setLimit(240);
+              setAutoRefresh(true);
+              setFundingSort("funding");
+              setFundingOrder("desc");
+              setFillsSort("net");
+              setFillsOrder("desc");
+              setThresholdRiskScore(55);
+              setThresholdConcentration(32);
+              setThresholdFeeDrag(18);
+              setThresholdSlippageBps(16);
+              setPresetNotice("Demo preset applied: tighter thresholds and faster signal surfacing.");
+            }}
+          >
+            Demo Preset
           </button>
           <label className="toggle-wrap">
             <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
@@ -544,6 +644,7 @@ export default function DashboardPage() {
             {lastUpdated ? `Last updated ${lastUpdated.toLocaleTimeString()}` : "Waiting for first data pull..."}
           </span>
         </div>
+        {presetNotice ? <p className="muted">{presetNotice}</p> : null}
       </section>
 
       {showTour ? (
@@ -687,12 +788,15 @@ export default function DashboardPage() {
               </ul>
             </>
           ) : null}
+          <p className="muted" style={{ marginTop: 10 }}>
+            Composite Recommendation: {compositeRecommendation}
+          </p>
         </Card>
       </section>
 
       <section className="section">
         <Card>
-          <SectionHeader title="Execution Quality" subtitle="Assess fee drag and slippage proxy on current fills window." />
+          <SectionHeader title="Execution Quality v2" subtitle="Assess fee drag, slippage, and fill efficiency on current window." />
           <div className="risk-v2-grid">
             <div>
               <p className="muted">Quality</p>
@@ -714,10 +818,79 @@ export default function DashboardPage() {
               <p className="muted">Avg Notional / Fill</p>
               <strong>{avgNotionalPerFill.toFixed(2)}</strong>
             </div>
+            <div>
+              <p className="muted">Win Rate</p>
+              <strong className={winRate >= 55 ? "good" : winRate >= 45 ? "warn" : "bad"}>{winRate.toFixed(1)}%</strong>
+            </div>
+            <div>
+              <p className="muted">Fee / Fill</p>
+              <strong>{costPerFill.toFixed(4)}</strong>
+            </div>
           </div>
           <p className="muted" style={{ marginTop: 10 }}>
             Slippage proxy uses |price - entry_price| / entry_price from fills as a rough execution quality signal.
           </p>
+        </Card>
+      </section>
+
+      <section className="section">
+        <Card>
+          <SectionHeader title="Threshold Alerts" subtitle="Set your trigger levels and monitor real-time breaches." />
+          <div className="threshold-grid">
+            <div className="field">
+              <label>Risk Score Threshold</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={thresholdRiskScore}
+                onChange={(e) => setThresholdRiskScore(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+              />
+            </div>
+            <div className="field">
+              <label>Concentration Threshold (%)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={thresholdConcentration}
+                onChange={(e) => setThresholdConcentration(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+              />
+            </div>
+            <div className="field">
+              <label>Fee Drag Threshold (%)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={thresholdFeeDrag}
+                onChange={(e) => setThresholdFeeDrag(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+              />
+            </div>
+            <div className="field">
+              <label>Slippage Threshold (bps)</label>
+              <input
+                type="number"
+                min={0}
+                max={500}
+                step={1}
+                value={thresholdSlippageBps}
+                onChange={(e) => setThresholdSlippageBps(Math.min(500, Math.max(0, Number(e.target.value) || 0)))}
+              />
+            </div>
+          </div>
+          {thresholdAlerts.length ? (
+            <ul>
+              {thresholdAlerts.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No threshold breaches right now.</p>
+          )}
         </Card>
       </section>
 
@@ -880,11 +1053,15 @@ export default function DashboardPage() {
                 <th>Amount</th>
                 <th>Entry</th>
                 <th>Mark</th>
+                <th>Risk Badge</th>
+                <th>Recommendation</th>
               </tr>
             </thead>
             <tbody>
               {data.positions.length ? (
-                data.positions.map((p, idx) => (
+                data.positions.map((p, idx) => {
+                  const riskRow = positionRiskRows.find((r) => r.symbol === String(p.symbol ?? ""));
+                  return (
                   <tr key={`${p.symbol}-${idx}`}>
                     <td><span className="sym-pill">{p.symbol}</span></td>
                     <td className={(String(p.side).toLowerCase().includes("bid") || String(p.side).toLowerCase().includes("long")) ? "good" : "bad"}>
@@ -893,11 +1070,17 @@ export default function DashboardPage() {
                     <td>{p.amount}</td>
                     <td>{p.entry_price}</td>
                     <td>{marks[p.symbol] || "-"}</td>
+                    <td>
+                      <span className={`risk-badge ${riskRow?.badge === "High" ? "bad" : riskRow?.badge === "Medium" ? "warn" : "good"}`}>
+                        {riskRow?.badge ?? "Low"}
+                      </span>
+                    </td>
+                    <td>{riskRow?.recommendation ?? "Hold setup"}</td>
                   </tr>
-                ))
+                )})
               ) : (
                 <tr>
-                  <td colSpan={5} className="empty-row">
+                  <td colSpan={7} className="empty-row">
                     {hasAccountData ? "No open positions for this wallet." : "Add a wallet to view positions."}
                   </td>
                 </tr>

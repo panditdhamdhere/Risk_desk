@@ -82,6 +82,12 @@ function toPct(v: number): string {
   return `${v.toFixed(1)}%`;
 }
 
+function riskBand(score: number): "Low" | "Medium" | "High" {
+  if (score >= 70) return "High";
+  if (score >= 40) return "Medium";
+  return "Low";
+}
+
 function getInjectedSolana(): any | null {
   if (typeof window === "undefined") return null;
   const w = window as Window & { solana?: any };
@@ -349,6 +355,65 @@ export default function DashboardPage() {
     fillMetrics.net < 0 ? "Session net PnL is negative after fees in selected window." : "",
     topFunding[0] ? `Largest absolute funding signal is ${topFunding[0].symbol}.` : "",
   ].filter(Boolean);
+  const riskBandLabel = riskBand(risk.overall);
+  const positionAlerts = data.positions
+    .map((p) => {
+      const sym = String(p.symbol ?? "");
+      const entry = toNum(p.entry_price);
+      const mark = toNum(marks[sym]);
+      if (!entry || !mark) return "";
+      const drawdownPct = Math.abs((mark - entry) / entry) * 100;
+      if (drawdownPct > 12) return `${sym}: mark moved ${drawdownPct.toFixed(1)}% from entry (high volatility risk).`;
+      if (drawdownPct > 7) return `${sym}: mark moved ${drawdownPct.toFixed(1)}% from entry (watch risk).`;
+      return "";
+    })
+    .filter(Boolean)
+    .slice(0, 3);
+
+  const notionalByPosition = data.positions.map((p) => {
+    const sym = String(p.symbol ?? "");
+    const px = toNum(marks[sym]) || toNum(p.entry_price);
+    const amt = Math.abs(toNum(p.amount));
+    return { symbol: sym, notional: amt * px };
+  });
+  const grossNotional = notionalByPosition.reduce((acc, r) => acc + r.notional, 0);
+  const maxNotional = notionalByPosition.reduce((m, r) => Math.max(m, r.notional), 0);
+  const concentrationPct = grossNotional > 0 ? (maxNotional / grossNotional) * 100 : 0;
+
+  const avgFundingAbs =
+    topFunding.length > 0
+      ? topFunding.reduce((acc, r) => acc + Math.abs(toNum(r.next_funding ?? r.funding)), 0) / topFunding.length
+      : 0;
+
+  const executionRows = data.trades.map((t) => ({
+    pnl: toNum(t.pnl),
+    fee: Math.abs(toNum(t.fee)),
+    amount: Math.abs(toNum(t.amount)),
+    price: Math.abs(toNum(t.price)),
+    entry: Math.abs(toNum(t.entry_price)),
+  }));
+  const grossPnlAbs = executionRows.reduce((acc, r) => acc + Math.abs(r.pnl), 0);
+  const totalFeesAbs = executionRows.reduce((acc, r) => acc + r.fee, 0);
+  const feeDragPct = grossPnlAbs > 0 ? (totalFeesAbs / grossPnlAbs) * 100 : 0;
+  const avgNotionalPerFill =
+    executionRows.length > 0
+      ? executionRows.reduce((acc, r) => acc + r.amount * (r.price || r.entry), 0) / executionRows.length
+      : 0;
+  const slippageProxyBps =
+    executionRows.length > 0
+      ? (executionRows.reduce((acc, r) => {
+          if (!r.price || !r.entry) return acc;
+          return acc + (Math.abs(r.price - r.entry) / Math.max(r.entry, 1e-9)) * 10000;
+        }, 0) / executionRows.length)
+      : 0;
+  const executionQuality =
+    feeDragPct > 35 || slippageProxyBps > 35
+      ? "Needs Attention"
+      : feeDragPct > 18 || slippageProxyBps > 18
+        ? "Moderate"
+        : "Healthy";
+  const executionTone =
+    executionQuality === "Needs Attention" ? "bad" : executionQuality === "Moderate" ? "warn" : "good";
 
   return (
     <motion.main
@@ -582,7 +647,27 @@ export default function DashboardPage() {
       </section>
       <section className="section">
         <Card>
-          <SectionHeader title="Risk Alerts" subtitle="Fast checks for execution and portfolio stress." />
+          <SectionHeader title="Risk Engine v2 Alerts" subtitle="Fast checks for portfolio stress and liquidation-like pressure." />
+          <div className="risk-v2-grid">
+            <div>
+              <p className="muted">Risk Band</p>
+              <strong className={riskBandLabel === "High" ? "bad" : riskBandLabel === "Medium" ? "warn" : "good"}>
+                {riskBandLabel}
+              </strong>
+            </div>
+            <div>
+              <p className="muted">Top Position Concentration</p>
+              <strong className={concentrationPct > 45 ? "bad" : concentrationPct > 30 ? "warn" : "good"}>
+                {concentrationPct.toFixed(1)}%
+              </strong>
+            </div>
+            <div>
+              <p className="muted">Avg Funding Stress</p>
+              <strong className={avgFundingAbs > 0.0015 ? "bad" : avgFundingAbs > 0.0008 ? "warn" : "good"}>
+                {avgFundingAbs.toFixed(6)}
+              </strong>
+            </div>
+          </div>
           {riskAlerts.length ? (
             <ul>
               {riskAlerts.map((a) => (
@@ -592,6 +677,47 @@ export default function DashboardPage() {
           ) : (
             <p className="muted">No active alerts right now.</p>
           )}
+          {positionAlerts.length ? (
+            <>
+              <p className="muted" style={{ marginTop: 8 }}>Position-specific alerts</p>
+              <ul>
+                {positionAlerts.map((a) => (
+                  <li key={a}>{a}</li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+        </Card>
+      </section>
+
+      <section className="section">
+        <Card>
+          <SectionHeader title="Execution Quality" subtitle="Assess fee drag and slippage proxy on current fills window." />
+          <div className="risk-v2-grid">
+            <div>
+              <p className="muted">Quality</p>
+              <strong className={executionTone}>{executionQuality}</strong>
+            </div>
+            <div>
+              <p className="muted">Fee Drag Ratio</p>
+              <strong className={feeDragPct > 35 ? "bad" : feeDragPct > 18 ? "warn" : "good"}>
+                {feeDragPct.toFixed(1)}%
+              </strong>
+            </div>
+            <div>
+              <p className="muted">Slippage Proxy</p>
+              <strong className={slippageProxyBps > 35 ? "bad" : slippageProxyBps > 18 ? "warn" : "good"}>
+                {slippageProxyBps.toFixed(1)} bps
+              </strong>
+            </div>
+            <div>
+              <p className="muted">Avg Notional / Fill</p>
+              <strong>{avgNotionalPerFill.toFixed(2)}</strong>
+            </div>
+          </div>
+          <p className="muted" style={{ marginTop: 10 }}>
+            Slippage proxy uses |price - entry_price| / entry_price from fills as a rough execution quality signal.
+          </p>
         </Card>
       </section>
 

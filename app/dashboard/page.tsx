@@ -82,6 +82,12 @@ function toPct(v: number): string {
   return `${v.toFixed(1)}%`;
 }
 
+function getInjectedSolana(): any | null {
+  if (typeof window === "undefined") return null;
+  const w = window as Window & { solana?: any };
+  return w.solana ?? null;
+}
+
 function toCsv(rows: AnyRow[]): string {
   if (!rows.length) return "";
   const cols = Object.keys(rows[0]);
@@ -107,6 +113,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showTour, setShowTour] = useState(false);
+  const [walletConnecting, setWalletConnecting] = useState(false);
   const [data, setData] = useState<{
     merged: AnyRow[];
     book: AnyRow;
@@ -162,6 +169,32 @@ export default function DashboardPage() {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const shortAccount = account
+    ? `${account.slice(0, 4)}...${account.slice(-4)}`
+    : "";
+
+  const connectWallet = async () => {
+    setWalletConnecting(true);
+    try {
+      const solana = getInjectedSolana();
+      if (!solana) {
+        const manual = window.prompt("No wallet extension found. Paste your Solana public key:");
+        if (manual && manual.trim()) {
+          setAccount(manual.trim());
+        }
+        return;
+      }
+      const resp = await solana.connect({ onlyIfTrusted: false });
+      const pk = resp?.publicKey?.toString?.() ?? solana?.publicKey?.toString?.();
+      if (pk) setAccount(pk);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Wallet connection failed";
+      setError(msg);
+    } finally {
+      setWalletConnecting(false);
     }
   };
 
@@ -331,6 +364,22 @@ export default function DashboardPage() {
           <a className="nav-link" href="https://docs.pacifica.fi/api-documentation/api" target="_blank" rel="noreferrer">
             API Docs
           </a>
+          {account ? (
+            <>
+              <span className="wallet-state connected">Connected {shortAccount}</span>
+              <button
+                className="wallet-btn"
+                onClick={() => setAccount("")}
+                title="Disconnect wallet from dashboard session"
+              >
+                Disconnect
+              </button>
+            </>
+          ) : (
+            <button className="wallet-btn" onClick={connectWallet} disabled={walletConnecting}>
+              {walletConnecting ? "Connecting..." : "Connect Wallet"}
+            </button>
+          )}
           <CommandPalette actions={actions} />
           <ThemeToggle />
         </nav>

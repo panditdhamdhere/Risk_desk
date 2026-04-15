@@ -102,6 +102,29 @@ body {
   font-size: 12px;
 }
 
+.wallet-btn {
+  border: 1px solid var(--border-soft);
+  background: rgba(122, 178, 255, 0.1);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.wallet-state {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.wallet-state.connected {
+  background: rgba(46, 204, 113, 0.14);
+  color: #7ae2aa;
+  border-color: rgba(46, 204, 113, 0.35);
+}
+
 .cmd-overlay {
   position: fixed;
   inset: 0;
@@ -837,6 +860,11 @@ ul {
 
 [data-theme="light"] .cmd-item {
   background: rgba(70, 120, 210, 0.06);
+}
+
+[data-theme="light"] .wallet-state.connected {
+  color: #167f49;
+  background: rgba(46, 204, 113, 0.16);
 }
 
 [data-theme="light"] .hero-preview,
